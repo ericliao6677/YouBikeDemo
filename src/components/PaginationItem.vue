@@ -15,15 +15,16 @@ const props = defineProps({
   },
   modelValue: {
     type: Number,
-    required: true,
     default: 1
   }
 });
 
 //宣告子元件事件
-const emit = defineEmits(['updatePage']);
+//emit可以宣告好幾個
+//如果父元件參數要跟子元件參數做v-model綁定，子元件需要宣告update:modelValue
+const emit = defineEmits(['updatePage', 'update:modelValue']);
 
-const childCurrentPage = ref(props.modelValue);
+const childCurrentPage = ref(1);
 
 const visiblePages = computed(() => {
   const pages = [];
@@ -46,8 +47,8 @@ const visiblePages = computed(() => {
 
 const changePage = (page) => {
   if (page > 0 && page <= props.totalPages) {
-    childCurrentPage.value = page;
-    emit('updatePage', childCurrentPage.value);
+    emit('updatePage', page);
+    emit('update:modelValue', page);
   }
 };
 </script>
@@ -59,7 +60,7 @@ const changePage = (page) => {
         <li
           class="page-item"
           :class="{ disabled: childCurrentPage === 1 }"
-          @click="changePage(childCurrentPage - 1)"
+          @click="changePage((childCurrentPage -= 1))"
         >
           <a class="page-link" href="#" aria-label="Previous">
             <span aria-hidden="true">&laquo;</span>
@@ -67,7 +68,13 @@ const changePage = (page) => {
         </li>
 
         <!--依據頁數跑迴圈，並將目前頁數回傳給父元件-->
-        <li class="page-item" v-for="item in visiblePages" :key="item" @click="changePage(item)">
+        <li
+          class="page-item"
+          :class="{ active: childCurrentPage === item }"
+          v-for="item in visiblePages"
+          :key="item"
+          @click="changePage((childCurrentPage = item))"
+        >
           <a class="page-link" href="#">{{ item }}</a>
         </li>
 
@@ -75,7 +82,7 @@ const changePage = (page) => {
         <li
           class="page-item"
           :class="{ disabled: childCurrentPage === props.totalPages }"
-          @click="changePage(childCurrentPage + 1)"
+          @click="changePage((childCurrentPage += 1))"
         >
           <a class="page-link" href="#" aria-label="Next">
             <span aria-hidden="true">&raquo;</span>
@@ -85,4 +92,4 @@ const changePage = (page) => {
     </nav>
   </div>
 </template>
-<style></style>
+<style scoped></style>
