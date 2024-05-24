@@ -8,9 +8,10 @@ const props = defineProps({
 const emit = defineEmits(['update:modelValue']);
 
 const current = ref(props.modelValue);
+const inputValue = ref('');
 
-const updateValue = (value) => {
-  emit('update:modelValue', value);
+const updateValue = () => {
+  emit('update:modelValue', inputValue.value);
 };
 
 const pages = ref([]);
@@ -20,7 +21,7 @@ for (let i = 1; i <= 10; i++) {
 }
 </script>
 <template>
-  <nav aria-label="Page navigation example">
+  <!-- <nav aria-label="Page navigation example">
     <ul class="pagination">
       <li class="page-item" @click="updateValue(current--)">
         <a class="page-link" href="#" aria-label="Previous">
@@ -38,5 +39,6 @@ for (let i = 1; i <= 10; i++) {
         </a>
       </li>
     </ul>
-  </nav>
+  </nav> -->
+  <input type="text" v-model="inputValue" @input="updateValue" />
 </template>

@@ -3,7 +3,7 @@ import { ref, computed } from 'vue';
 
 //宣告props，值從父元件傳過來
 const props = defineProps({
-  totalPages: {
+  totalData: {
     type: Number,
     required: true,
     default: 100
@@ -22,9 +22,17 @@ const props = defineProps({
 //宣告子元件事件
 //emit可以宣告好幾個
 //如果父元件參數要跟子元件參數做v-model綁定，子元件需要宣告update:modelValue
-const emit = defineEmits(['updatePage', 'update:modelValue']);
+const emit = defineEmits(['changePage', 'update:modelValue']);
 
 const childCurrentPage = ref(1);
+const totalPages = computed(() => {
+  if (props.pageSize >= props.totalData) {
+    return 1;
+  }
+  return props.totalData % props.pageSize === 0
+    ? props.totalData / props.pageSize
+    : Math.round(props.totalData / props.pageSize);
+});
 
 const visiblePages = computed(() => {
   const pages = [];
@@ -33,8 +41,8 @@ const visiblePages = computed(() => {
   let startPage = Math.max(childCurrentPage.value - half, 1);
   let endPage = startPage + props.pageSize - 1;
 
-  if (endPage > props.totalPages) {
-    endPage = props.totalPages;
+  if (endPage > totalPages.value) {
+    endPage = totalPages.value;
     startPage = Math.max(endPage - props.pageSize + 1, 1);
   }
 
@@ -46,8 +54,8 @@ const visiblePages = computed(() => {
 });
 
 const changePage = (page) => {
-  if (page > 0 && page <= props.totalPages) {
-    emit('updatePage', page);
+  if (page > 0 && page <= totalPages.value) {
+    emit('changePage', page);
     emit('update:modelValue', page);
   }
 };
@@ -60,7 +68,7 @@ const changePage = (page) => {
         <li
           class="page-item"
           :class="{ disabled: childCurrentPage === 1 }"
-          @click="changePage((childCurrentPage -= 1))"
+          @click="changePage(childCurrentPage === 1 ? 1 : (childCurrentPage -= 1))"
         >
           <a class="page-link" href="#" aria-label="Previous">
             <span aria-hidden="true">&laquo;</span>
@@ -81,8 +89,10 @@ const changePage = (page) => {
         <!--下一頁按鈕-->
         <li
           class="page-item"
-          :class="{ disabled: childCurrentPage === props.totalPages }"
-          @click="changePage((childCurrentPage += 1))"
+          :class="{ disabled: childCurrentPage === totalPages }"
+          @click="
+            changePage(childCurrentPage === totalPages ? totalPages : (childCurrentPage += 1))
+          "
         >
           <a class="page-link" href="#" aria-label="Next">
             <span aria-hidden="true">&raquo;</span>

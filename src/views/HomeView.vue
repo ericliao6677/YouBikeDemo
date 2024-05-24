@@ -1,99 +1,77 @@
 <script setup>
-import { ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import PaginationItem from '../components/PaginationItem.vue';
 import SearchBarComponent from '../components/SearchBarComponent.vue';
 
-const allYouBikeDataList = ref([]);
-const filterByPageSizeYouBikeDataList = ref([]);
+const allBikeList = ref([]);
 
-const inputValueInParent = ref('');
+const searchStr = ref(''); //關鍵字搜尋文字
+
+const currentSort = ref(''); //目前排序的欄位
+const sortType = ref(''); //排序類型
+
 const pageSize = ref(10); //一頁10筆資料
 const currentPage = ref(1); //預設為第1頁
-const totalDataCount = ref(0); //由api取得的資料的筆數
-const totalPages = ref(0); //會由總筆數資料計算出需要的頁數
-
-const totalSortUpIcon = ref('bi-caret-up');
-const totalSortDownIcon = ref('bi-caret-down');
-const availableSortUpIcon = ref('bi-caret-up');
-const availableSortDownIcon = ref('bi-caret-down');
 
 const getYouBikeData = async () => {
   const res = await fetch(
     'https://tcgbusfs.blob.core.windows.net/dotapp/youbike/v2/youbike_immediate.json'
   );
   const resData = await res.json();
-  allYouBikeDataList.value = resData;
-  totalDataCount.value = allYouBikeDataList.value.length;
-
-  //計算出總共需要的頁數
-  totalPages.value = Math.round(totalDataCount.value / pageSize.value) + 1;
-  //filterByPageSizeYouBikeDataList.value = allYouBikeDataList.value.slice(0, pageSize.value);
-  updateCurrentPageData(currentPage.value);
-};
-getYouBikeData();
-
-//currentPagefromChild的值是由子元件emit傳出
-const updateCurrentPageData = (currentPagefromChild) => {
-  //可以在這邊覆值如下，或是使用v-model綁定
-  //currentPage.value = currentPagefromChild;
-
-  //計算需要略過幾筆資料
-  const skipCount = (currentPagefromChild - 1) * pageSize.value;
-  filterByPageSizeYouBikeDataList.value = allYouBikeDataList.value.slice(
-    skipCount,
-    skipCount + pageSize.value
-  );
-  //currentPage.value = currentPagefromChild;
+  allBikeList.value = resData;
 };
 
-const sortBy = (col, sortType) => {
-  totalSortUpIcon.value = 'bi-caret-up';
-  totalSortDownIcon.value = 'bi-caret-down';
-  availableSortUpIcon.value = 'bi-caret-up';
-  availableSortDownIcon.value = 'bi-caret-down';
+//1. 關鍵字搜尋
+//利用computed及時監聽searchStr.value並改變當前資料
+const allBikeListFilterBySearchStr = computed(() => {
+  return allBikeList.value.filter((item) => item.ar.includes(searchStr.value));
+});
 
-  if (col === '總車位數量') {
-    if (sortType === 'asc') {
-      allYouBikeDataList.value.sort((pre, next) => {
-        return pre.total - next.total;
-      });
-      //更改sort樣式
-      totalSortUpIcon.value = 'bi-caret-up-fill';
-      //根據排序過後的資料再做一次分頁
-      updateCurrentPageData(currentPage.value);
-    } else {
-      allYouBikeDataList.value.sort((pre, next) => {
-        return next.total - pre.total;
-      });
-      totalSortDownIcon.value = 'bi-caret-down-fill';
-      updateCurrentPageData(currentPage.value);
-    }
-  }
-  if (col === '可租借的腳踏車數量') {
-    if (sortType === 'asc') {
-      allYouBikeDataList.value.sort((pre, next) => {
-        return pre.available_rent_bikes - next.available_rent_bikes;
-      });
-      //更改sort樣式
-      availableSortUpIcon.value = 'bi-caret-up-fill';
-      //根據排序過後的資料再做一次分頁
-      updateCurrentPageData(currentPage.value);
-    } else {
-      allYouBikeDataList.value.sort((pre, next) => {
-        return next.available_rent_bikes - pre.available_rent_bikes;
-      });
-      availableSortDownIcon.value = 'bi-caret-down-fill';
-      updateCurrentPageData(currentPage.value);
-    }
+const hightSearchStr = (ar) => {
+  if (searchStr.value) {
+    return ar.replace(searchStr.value, `<span style=color:red>${searchStr.value}</span>`);
+  } else {
+    return ar;
   }
 };
 
-const test = ref('');
-const filterKeyWord = (keyWord) => {
-  test.value = keyWord;
-  allYouBikeDataList.value = allYouBikeDataList.value.filter((value) => value.ar.includes(keyWord));
-  //updateCurrentPageData(currentPage.value);
+//2.排序
+const sortAllBikeList = (sortCol) => {
+  const originType = currentSort.value; //原本的排序欄位
+  currentSort.value = sortCol; //之後欲排序的欄位
+
+  //如果是原本的欄位就切換排序方式，否則預設為降冪排序
+  if (originType === currentSort.value) {
+    sortType.value = sortType.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortType.value = 'desc';
+  }
 };
+
+//利用computed可以及時監聽sortType.value回傳排序後的資料
+const allBikeListFilterBySort = computed(() => {
+  let result = [...allBikeListFilterBySearchStr.value];
+  //如果currentSort.value沒有值就回傳原資料
+  if (!currentSort.value) return result;
+  return sortType.value === 'asc'
+    ? result.sort((pre, next) => pre[currentSort.value] - next[currentSort.value])
+    : result.sort((pre, next) => next[currentSort.value] - pre[currentSort.value]);
+});
+
+//3. 分頁
+//排序後的總筆數
+//用allBikeListFilterBySort，如果currentSort.value === '' => 回傳原資料，所以總比數不會錯
+const allBikeListFilterBySortTotal = computed(() => allBikeListFilterBySort.value.length);
+
+const allBikeListFilterBySortSliced = computed(() => {
+  const skipCount = (currentPage.value - 1) * pageSize.value;
+  const data = allBikeListFilterBySort.value.slice(skipCount, skipCount + pageSize.value);
+  return data;
+});
+
+onMounted(async () => {
+  await getYouBikeData();
+});
 </script>
 
 <template>
@@ -105,11 +83,7 @@ const filterKeyWord = (keyWord) => {
         </h3>
         <span>目前頁數: {{ currentPage }}</span>
       </div>
-      <SearchBarComponent
-        v-model="inputValueInParent"
-        @inputEventHandle="filterKeyWord"
-      ></SearchBarComponent>
-      {{ test }}
+      <SearchBarComponent v-model="searchStr"></SearchBarComponent>{{ searchStr }}
     </div>
     <hr />
     <table class="table table-striped">
@@ -119,33 +93,43 @@ const filterKeyWord = (keyWord) => {
           <th scope="col">站點名稱</th>
           <th scope="col">站點所在區域</th>
           <th scope="col">站點地址</th>
-          <th scope="col">
+          <th scope="col" @click="sortAllBikeList('total')">
             總車位數量
             <div class="d-flex flex-column">
               <i
-                :class="totalSortUpIcon"
+                :class="[
+                  currentSort === 'total' && sortType === 'asc' ? 'bi-caret-up-fill' : 'bi-caret-up'
+                ]"
                 class="bi icon-sm cursor-pointer"
-                @click="sortBy('總車位數量', 'asc')"
               ></i>
               <i
-                :class="totalSortDownIcon"
+                :class="[
+                  currentSort === 'total' && sortType === 'desc'
+                    ? 'bi-caret-down-fill'
+                    : 'bi-caret-down'
+                ]"
                 class="bi icon-sm cursor-pointer"
-                @click="sortBy('總車位數量', 'desc')"
               ></i>
             </div>
           </th>
-          <th scope="col">
+          <th scope="col" @click="sortAllBikeList('available_rent_bikes')">
             可租借的腳踏車數量
             <div class="d-flex flex-column">
               <i
-                :class="availableSortUpIcon"
+                :class="[
+                  currentSort === 'available_rent_bikes' && sortType === 'asc'
+                    ? 'bi-caret-up-fill'
+                    : 'bi-caret-up'
+                ]"
                 class="bi icon-sm cursor-pointer"
-                @click="sortBy('可租借的腳踏車數量', 'asc')"
               ></i>
               <i
-                :class="availableSortDownIcon"
+                :class="[
+                  currentSort === 'available_rent_bikes' && sortType === 'desc'
+                    ? 'bi-caret-down-fill'
+                    : 'bi-caret-down'
+                ]"
                 class="bi icon-sm cursor-pointer"
-                @click="sortBy('可租借的腳踏車數量', 'desc')"
               ></i>
             </div>
           </th>
@@ -155,11 +139,11 @@ const filterKeyWord = (keyWord) => {
         </tr>
       </thead>
       <tbody>
-        <tr v-for="item in filterByPageSizeYouBikeDataList" :key="item.sno">
+        <tr v-for="item in allBikeListFilterBySortSliced" :key="item.sno">
           <td>{{ item.sno }}</td>
           <td>{{ item.sna }}</td>
           <td>{{ item.sarea }}</td>
-          <td>{{ item.ar }}</td>
+          <td v-html="hightSearchStr(item.ar)"></td>
           <td>{{ item.total }}</td>
           <td>{{ item.available_rent_bikes }}</td>
           <td>{{ item.latitude }}</td>
@@ -169,10 +153,9 @@ const filterKeyWord = (keyWord) => {
       </tbody>
     </table>
     <PaginationItem
-      :totalPages="totalPages"
+      :totalData="allBikeListFilterBySortTotal"
       :pageSize="pageSize"
       v-model="currentPage"
-      @updatePage="updateCurrentPageData"
     >
     </PaginationItem>
   </div>
